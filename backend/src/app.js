@@ -46,8 +46,13 @@ app.use(express.json({
 }))
 app.use(express.urlencoded({ extended: true, limit: '10kb' }))
 
-// Sanitize MongoDB operators in req.body/params/query (NoSQL injection)
-app.use(mongoSanitize())
+// Sanitize MongoDB operators in req.body/params/query (NoSQL injection).
+// Skipped for the Meta webhook: its verification handshake sends dotted query keys
+// (hub.mode, hub.verify_token, hub.challenge), which the sanitizer strips entirely, so
+// verification would always 403. The webhook is token/signature-checked and never feeds
+// request keys into a Mongo query.
+const sanitize = mongoSanitize()
+app.use((req, res, next) => (req.path.startsWith('/api/v1/webhooks') ? next() : sanitize(req, res, next)))
 
 // Strip dangerous HTML tags (XSS)
 app.use(xss())
